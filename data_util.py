@@ -1,6 +1,14 @@
 import numpy as np
 from scipy.io import loadmat
 import os
+import sys
+from tqdm import trange
+
+class Error(Exception):
+    pass
+
+class ZeroData(Error):
+    pass
 
 class Dataset:
 
@@ -15,7 +23,7 @@ class Dataset:
         self.illum_img_sub = 21
         self.processed_dataset = {}
 
-    def load_data(self):
+    def load_data(self, transform='PCA', **kwargs):
 
         if self.task_id == 1:
             self.data = loadmat(os.path.join(self.data_path, 'data.mat'))['face']
@@ -47,7 +55,10 @@ class Dataset:
             self.std_data[i] = \
                 self.data[:, :, 3*i : 3*(i+1)]
 
+        self.transform_data(transform=transform, **kwargs)
+
     def make_data_dict(self):
+
         if self.task_id == 1:
             self.data_dict = {'data': [self.std_data, self.data_sub, self.data_img_sub],
                               'pose': [self.pose_data, self.pose_sub, self.pose_img_sub],
@@ -62,51 +73,78 @@ class Dataset:
 
         return (image.flatten() - mean) / std**2
 
-    def transform_data(self, data_name='data', transform='PCA', threshold=0.8):
+    def transform_data(self, transform='PCA', **kwargs):
 
         self.make_data_dict()
-        if transform == 'PCA':
+        if transform.upper() == 'PCA':
+            threshold = kwargs['threshold']
+            data_name = kwargs['data_name']
             keys = data_name
-            print(keys)
-            for i in range(self.data_dict[keys][1]):
-                print(i)
-                normalize_data = [self.normalize_image(self.data_dict[keys][0][i][:,:,j])
-                                   for j in range(self.data_dict[keys][2])]
-                normalize_data = np.array(normalize_data, dtype=np.float64)
+            normalize_data = [self.normalize_image(self.data_dict[keys][0][i][:,:,j])
+                              for i in range(self.data_dict[keys][1])
+                              for j in range(self.data_dict[keys][2])]
+            normalize_data = np.array(normalize_data, dtype=np.float64)
+            cov_data = np.matmul(normalize_data.T, normalize_data)
+            eig_value, eig_vector = np.linalg.eig(cov_data)
 
-                cov_data = np.matmul(normalize_data.T, normalize_data)
-                eig_value, eig_vector = np.linalg.eig(cov_data)
+            # Sorting eigen value and corresponding eig vector in descending order
+            index = np.argsort(eig_value)
+            index = index[::-1]
+            eig_value_sort = eig_value[index]
+            eig_vector_sort = eig_vector[:, index]
 
-                # Sorting eigen value and corresponding eig vector in descending order
-                index = np.argsort(eig_value)
-                eig_value_sort = eig_value[index]
-                eig_value_sort = eig_value_sort[::-1]
-                eig_vector_sort = eig_vector[:, index]
-                eig_vector_sort = np.flip(eig_vector_sort, axis=-1)
+            # Taking only real values
+            eig_value_sort = eig_value_sort.real
+            eig_vector_sort = eig_vector_sort.real
 
-                # Taking only real values
-                eig_value_sort = eig_value_sort.real
-                eig_vector_sort = eig_vector_sort.real
+            principle_components = np.matmul(normalize_data, eig_vector_sort)
+            # variance = np.std(principle_components, axis=0)
+            # index = np.argsort(variance)
 
-                principle_componets = np.matmul(normalize_data, eig_vector_sort)
-                variance = np.std(principle_componets, axis=0)
-                index = np.argsort(variance)
-                col_threshold = int(eig_vector_sort.shape[-1] * threshold)
-                index = index[-col_threshold:]
-                eig_vector_sort = eig_vector_sort[:, index]
+            try:
+                col_threshold = int(principle_components.shape[-1] * threshold)
+                if col_threshold <= 0:
+                    raise ZeroData
 
+            except ZeroData:
+                print("Choose a higher threshold. Current value gives zero features")
+                sys.exit()
+
+            index = index[:col_threshold]
+            principle_components = principle_components[:, index]
+
+            img_sub = self.data_dict[keys][2]
+            for i in trange(0, self.data_dict[keys][1], desc='data_pre_processing'):
                 if keys in self.processed_dataset.keys():
-                    self.processed_dataset[keys] = np.dstack((self.processed_dataset[keys], eig_vector_sort))
+                    self.processed_dataset[keys] = np.dstack((self.processed_dataset[keys],
+                                                              principle_components[img_sub*i : img_sub*(i+1)]))
                 else:
-                    self.processed_dataset[keys] = eig_vector_sort
+                    self.processed_dataset[keys] = principle_components[img_sub*i : img_sub*(i+1)]
+
+            print(self.processed_dataset[keys].shape)
 
         elif transform == 'MDA':
             return
+
+    def train_test_split(self, data_name='data', ratio=0.8):
+        np.random.seed(10)
+        np.random.shuffle(self.processed_dataset)
+        try:
+            split_size = int(self.processed_dataset[data_name].shape[0] * ratio)
+            if split_size == self.processed_dataset[data_name].shape[0]:
+                raise ZeroData
+        except ZeroData:
+            print(f"Data split ratio ({ratio}) is such that the test split has zero points")
+            sys.exit()
+
+        self.train_data = self.processed_dataset[data_name][0 : split_size, :, :]
+        # self.train_data = self.processed_dataset[data_name]
+        self.test_data = self.processed_dataset[data_name][split_size :, :, :]
 
 if __name__ == '__main__':
     """ 
     First initialize the dataset object the call load_data.
     """
     data = Dataset()
-    data.load_data()
-    data.transform_data(data_name='data')
+    data.load_data(transform='PCA', threshold=0.02, data_name='data')
+    data.train_test_split()
