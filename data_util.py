@@ -13,6 +13,7 @@ class Dataset:
         self.data_img_sub = 3
         self.pose_img_sub = 13
         self.illum_img_sub = 21
+        self.processed_dataset = {}
 
     def load_data(self):
 
@@ -54,26 +55,58 @@ class Dataset:
         elif self.task_id == 2:
             self.data_dict = {'data': [self.std_data, self.data_sub, self.data_img_sub]}
 
-    def transform_data(self, transform='PCA'):
-
-        if transform == 'PCA':
-            for keys in self.data_dict:
-                normalize_data = [self.normalize_image(self.data_dict[keys][0][:,:,j])
-                                   for i in range(self.data_dict[keys][1]) for j in range(self.data_dict[keys][2])]
-
-                cov_data = np.matmul(normalize_data.T * normalize_data)
-
     def normalize_image(self, image):
 
         mean = np.mean(image)
         std = np.std(image)
 
-        return (image.flatten() - mean) / std
+        return (image.flatten() - mean) / std**2
+
+    def transform_data(self, data_name='data', transform='PCA', threshold=0.8):
+
+        self.make_data_dict()
+        if transform == 'PCA':
+            keys = data_name
+            print(keys)
+            for i in range(self.data_dict[keys][1]):
+                print(i)
+                normalize_data = [self.normalize_image(self.data_dict[keys][0][i][:,:,j])
+                                   for j in range(self.data_dict[keys][2])]
+                normalize_data = np.array(normalize_data, dtype=np.float64)
+
+                cov_data = np.matmul(normalize_data.T, normalize_data)
+                eig_value, eig_vector = np.linalg.eig(cov_data)
+
+                # Sorting eigen value and corresponding eig vector in descending order
+                index = np.argsort(eig_value)
+                eig_value_sort = eig_value[index]
+                eig_value_sort = eig_value_sort[::-1]
+                eig_vector_sort = eig_vector[:, index]
+                eig_vector_sort = np.flip(eig_vector_sort, axis=-1)
+
+                # Taking only real values
+                eig_value_sort = eig_value_sort.real
+                eig_vector_sort = eig_vector_sort.real
+
+                principle_componets = np.matmul(normalize_data, eig_vector_sort)
+                variance = np.std(principle_componets, axis=0)
+                index = np.argsort(variance)
+                col_threshold = int(eig_vector_sort.shape[-1] * threshold)
+                index = index[-col_threshold:]
+                eig_vector_sort = eig_vector_sort[:, index]
+
+                if keys in self.processed_dataset.keys():
+                    self.processed_dataset[keys] = np.dstack((self.processed_dataset[keys], eig_vector_sort))
+                else:
+                    self.processed_dataset[keys] = eig_vector_sort
+
+        elif transform == 'MDA':
+            return
 
 if __name__ == '__main__':
     """ 
-    First initialize the dataset object the call load_data. If you want to transform data or 
-    get the data in a dictionary call make_data_dict
+    First initialize the dataset object the call load_data.
     """
     data = Dataset()
     data.load_data()
+    data.transform_data(data_name='data')
