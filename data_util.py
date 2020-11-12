@@ -46,14 +46,32 @@ class Dataset:
                         self.illum_data[i] = np.dstack((self.illum_data[i],
                                                        np.reshape(self.illumination[:,  j, i], (48, 40))))
 
+            self.std_data = {}
+
+            for i in range(self.data_sub):
+                self.std_data[i] = \
+                    self.data[:, :, 3 * i: 3 * (i + 1)]
+
         elif self.task_id == 2:
+            # Since the second tak is a binary problem where each class has 200 images
+            self.data_img_sub = 200
+            self.data_sub = 2
             self.data = loadmat(os.path.join(self.data_path, 'data.mat'))['face']
+            self.std_data = {}
 
-        self.std_data = {}
+            for i in range(self.data_sub):
+                for j in range(self.data_img_sub):
 
-        for i in range(self.data_sub):
-            self.std_data[i] = \
-                self.data[:, :, 3*i : 3*(i+1)]
+                    if i == 0:
+                        if i not in self.std_data.keys():
+                            self.std_data[i] = self.data[:, :, 3*j]
+                        else:
+                            self.std_data[i] = np.dstack((self.std_data[i], self.data[:, :, 3*j]))
+                    elif i == 1:
+                        if i not in self.std_data.keys():
+                            self.std_data[i] = self.data[:, :, 3*j + 1]
+                        else:
+                            self.std_data[i] = np.dstack((self.std_data[i], self.data[:, :, 3*j + 1]))
 
         self.transform_data(transform=transform, **kwargs)
 
@@ -126,20 +144,33 @@ class Dataset:
         elif transform == 'MDA':
             return
 
-    def train_test_split(self, data_name='data', ratio=0.8):
+    def train_val_test_split(self, data_name='data', test_ratio=0.8, cross_ratio=None):
+
         np.random.seed(10)
         np.random.shuffle(self.processed_dataset)
         try:
-            split_size = int(self.processed_dataset[data_name].shape[0] * ratio)
+            split_size = int(self.processed_dataset[data_name].shape[0] * test_ratio)
             if split_size == self.processed_dataset[data_name].shape[0]:
                 raise ZeroData
         except ZeroData:
-            print(f"Data split ratio ({ratio}) is such that the test split has zero points")
+            print(f"Data split test_ratio ({test_ratio}) is such that the test split has zero points")
             sys.exit()
 
-        self.train_data = self.processed_dataset[data_name][0 : split_size, :, :]
-        # self.train_data = self.processed_dataset[data_name]
-        self.test_data = self.processed_dataset[data_name][split_size :, :, :]
+        self.train_data = self.processed_dataset[data_name][0: split_size, :, :]
+        self.test_data = self.processed_dataset[data_name][split_size:, :, :]
+
+        if cross_ratio is not None:
+            try:
+                split_size = int(self.train_data.shape[0] * cross_ratio)
+                if split_size == self.train_data.shape[0]:
+                    raise ZeroData
+            except ZeroData:
+                print(f"Data split cross_ratio ({cross_ratio}) is such that the val split has zero points")
+                sys.exit()
+
+            self.val_data = self.train_data[split_size :, :, :]
+            self.train_data = self.train_data[0 : split_size, :, :]
+
 
 if __name__ == '__main__':
     """ 
