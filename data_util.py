@@ -144,9 +144,11 @@ class Dataset:
         elif transform == 'MDA':
             return
 
-    def train_val_test_split(self, data_name='data', test_ratio=0.8, cross_ratio=None):
+    def train_val_test_split(self, data_name='data', test_ratio=0.8, seed=True, cross_ratio=None):
 
-        np.random.seed(10)
+        if seed:
+            np.random.seed(10)
+
         np.random.shuffle(self.processed_dataset)
         try:
             split_size = int(self.processed_dataset[data_name].shape[0] * test_ratio)
