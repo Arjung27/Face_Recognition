@@ -21,11 +21,10 @@ class Adaboost(svm):
         labels = np.array([-1] * self.train_data.shape[0] + [1] * self.train_data.shape[0])
         labels = np.expand_dims(labels, 1)
         total_data = self.X_train.shape[0]
-
         w = np.full(total_data, (1 / total_data))
 
         for i in range(self.n_iters):
-            super().__init__(self.data, self.kernel, max_epochs=100, lr=0.00008, margin=10000,
+            super().__init__(self.data, self.kernel, max_epochs=50, lr=0.00008, margin=10000,
                                  seed=False, val=False, kernel_param=self.train_data.shape[1])
             self.svm_classification()
             # print((labels != self.prediction).shape)
@@ -54,11 +53,11 @@ class Adaboost(svm):
         y_pred = np.sign(y_pred).flatten()
         acc = y_pred == labels
         self.acc = np.sum(acc) / total_data
-        print(f"Accuracy on test data: {acc}")
+        print(f"Accuracy on test data: {self.acc * 100}")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Bayes")
-    parser.add_argument('--iterations', type=int, default=5, help='Number of classifiers')
+    parser.add_argument('--iterations', type=int, nargs='+', default=[5], help='Number of classifiers')
     parser.add_argument('--kernel', type=str, default='rbf', help='rbf or poly')
     args = parser.parse_args()
 
@@ -67,5 +66,14 @@ if __name__ == '__main__':
     data = Dataset(task_id=2)
     data.load_data(transform='PCA', threshold=threshold[data_name], data_name='data')
     data.train_val_test_split(data_name=data_name, test_ratio=0.8, seed=False)
-    boost = Adaboost(data, args.iterations, kernel=args.kernel)
-    boost.fit()
+    accs = []
+    for iter in args.iterations:
+        boost = Adaboost(data, iter, kernel=args.kernel)
+        boost.fit()
+        accs.append(boost.acc)
+
+    fig = plt.figure()
+    plt.plot(args.iterations, accs)
+    plt.plot(args.iterations, accs, 'g*')
+    plt.savefig(f'boosted_svm_epochs={boost.max_epochs}_lr={boost.lr}.png')
+    plt.show()
