@@ -62,5 +62,5 @@ if __name__ == '__main__':
          'illum': 1}
     data = Dataset()
     data.load_data(transform='PCA', threshold=threshold[data_name], data_name=data_name)
-    data.train_test_split(data_name=data_name)
+    data.train_val_test_split(data_name=data_name)
     knn_classification(data, k=k[data_name])

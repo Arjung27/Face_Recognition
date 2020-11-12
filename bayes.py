@@ -40,7 +40,7 @@ def test(test_data, mean, var):
 
     return correct*100 / total_samples
 
-def classification(data):
+def bayes_classification(data):
     mean, var = calculate_class_stat(data.train_data)
     train_acc = test(data.train_data, mean, var)
     test_acc = test(data.test_data, mean, var)
@@ -59,5 +59,5 @@ if __name__ == '__main__':
                  'illum': 0.1}
     data = Dataset()
     data.load_data(transform='PCA', threshold=threshold[data_name], data_name=data_name)
-    data.train_test_split(data_name=data_name)
-    classification(data)
+    data.train_val_test_split(data_name=data_name)
+    bayes_classification(data)

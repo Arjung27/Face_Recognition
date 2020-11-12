@@ -111,7 +111,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     data_name = 'data'
-    threshold = {'data': 0.008,
+    threshold = {'data': 0.03,
                  'pose': 0.025,
                  'illum': 0.1}
     data = Dataset(task_id=2)
@@ -122,6 +122,6 @@ if __name__ == '__main__':
         param = data.train_data.shape[1]
     else:
         param = 2
-    classifier = svm(data, args.kernel, max_epochs=5000, lr=0.00002, margin=100000, kernel_param=param)
+    classifier = svm(data, args.kernel, max_epochs=5000, lr=0.00002, margin=10000, kernel_param=param)
     classifier.svm_classification()
     classifier.predict()
