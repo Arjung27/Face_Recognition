@@ -139,8 +139,6 @@ class Dataset:
                 else:
                     self.processed_dataset[keys] = principle_components[img_sub*i : img_sub*(i+1)]
 
-            print(self.processed_dataset[keys].shape)
-
         elif transform == 'MDA':
             return
 
@@ -149,7 +147,7 @@ class Dataset:
         if seed:
             np.random.seed(10)
 
-        np.random.shuffle(self.processed_dataset)
+        # np.random.shuffle(self.processed_dataset)
         try:
             split_size = int(self.processed_dataset[data_name].shape[0] * test_ratio)
             if split_size == self.processed_dataset[data_name].shape[0]:
@@ -173,6 +171,14 @@ class Dataset:
             self.val_data = self.train_data[split_size :, :, :]
             self.train_data = self.train_data[0 : split_size, :, :]
 
+            print(f'Size of training dataset: {self.train_data.shape}')
+            print(f'Size of validation dataset: {self.val_data.shape}')
+            print(f'Size of testing dataset: {self.test_data.shape}')
+
+            return
+
+        print(f'Size of training dataset: {self.train_data.shape}')
+        print(f'Size of testing dataset: {self.test_data.shape}')
 
 if __name__ == '__main__':
     """ 

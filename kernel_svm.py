@@ -7,7 +7,7 @@ from tqdm import tqdm, trange
 class svm:
 
     def __init__(self, data, kernel_key='rbf', max_epochs=500, lr=0.01, margin=10000,
-                 eps=1e-05, seed=True, val=True, alpha=1, **kwargs):
+                 eps=1e-05, seed=True, val=True, alpha=1, boost=False, **kwargs):
         self.data = data
         self.kernel_key = kernel_key
         self.train_data = data.train_data
@@ -23,6 +23,7 @@ class svm:
         self.eps = eps
         self.seed = seed
         self.alpha = alpha
+        self.boost = boost
 
     def rbf_kernel(self, sigma=0.5):
         sigma = 1 / (sigma ** 2)
@@ -35,6 +36,7 @@ class svm:
 
     def linear_kernel(self, power=1):
         kernel = lambda X, y: np.matmul(X, y.T)
+        return kernel
 
     def calculate_gradient(self, x, y):
         x = np.expand_dims(x, 0)
@@ -58,25 +60,49 @@ class svm:
         else:
             self.weights = np.random.rand(X.shape[1])
 
-        for epoch in trange(self.max_epochs, desc='training svm'):
-            shuffler = np.random.permutation(np.arange(y.shape[0]))
-            X_shuffled = X[shuffler]
-            y_shuffled = y[shuffler]
-            weights = self.weights
-            for batch_idx, data in enumerate(X_shuffled):
-                gradient = self.calculate_gradient(data, y_shuffled[batch_idx])
-                self.weights = self.weights - self.lr * gradient
+        self.weights = np.zeros(X.shape[1])
 
-                if np.linalg.norm(gradient) <= self.eps:
-                    return
+        if not self.boost:
+            for epoch in trange(self.max_epochs, desc='training svm'):
+                shuffler = np.random.permutation(np.arange(y.shape[0]))
+                X_shuffled = X[shuffler]
+                y_shuffled = y[shuffler]
+                weights = self.weights
+                for batch_idx, data in enumerate(X_shuffled):
+                    gradient = self.calculate_gradient(data, y_shuffled[batch_idx])
+                    self.weights = self.weights - self.lr * gradient
 
-            if ((epoch + 1) % 2000 == 0 or (epoch + 1) % 5000 == 0) and (self.val):
-                self.predict('train')
-                self.predict('val')
-                self.predict('test')
-                if (epoch + 1) % 5000 == 0:
-                    self.lr = self.lr / 2
-                    print(f'New lr ---> {self.lr}')
+                    if np.linalg.norm(gradient) <= self.eps:
+                        return
+
+                if ((epoch + 1) % 2000 == 0 or (epoch + 1) % 5000 == 0) and (self.val):
+                    self.predict('train')
+                    self.predict('val')
+                    self.predict('test')
+                    if (epoch + 1) % 5000 == 0:
+                        self.lr = self.lr / 2
+                        print(f'New lr ---> {self.lr}')
+        else:
+            for epoch in range(self.max_epochs):
+                shuffler = np.random.permutation(np.arange(y.shape[0]))
+                X_shuffled = X[shuffler]
+                y_shuffled = y[shuffler]
+                weights = self.weights
+                for batch_idx, data in enumerate(X_shuffled):
+                    gradient = self.calculate_gradient(data, y_shuffled[batch_idx])
+                    self.weights = self.weights - self.lr * gradient
+
+                    if np.linalg.norm(gradient) <= self.eps:
+                        return
+
+                if ((epoch + 1) % 2000 == 0 or (epoch + 1) % 5000 == 0) and (self.val):
+                    self.predict('train')
+                    self.predict('val')
+                    self.predict('test')
+                    if (epoch + 1) % 5000 == 0:
+                        self.lr = self.lr / 2
+                        print(f'New lr ---> {self.lr}')
+
 
     def svm_classification(self, **kwargs):
         self.X_train = np.reshape(self.train_data, [-1, self.train_data.shape[1]])
@@ -96,11 +122,11 @@ class svm:
         trained_weights = np.expand_dims(self.weights, -1)
         self.prediction = np.sign(np.dot(self.K, trained_weights))
 
-        self.predict('train')
         if (self.val):
+            self.predict('train')
             self.predict('val')
 
-    def predict(self, mode='test', boost=False):
+    def predict(self, mode='test'):
         if mode == 'test':
             X_test = np.reshape(self.test_data, [-1, self.test_data.shape[1]])
             labels = np.array([-1] * self.test_data.shape[0] + [1] * self.test_data.shape[0])
@@ -118,15 +144,16 @@ class svm:
         self.K1 = kernel(X_test, self.X_train)
         self.K1 = np.insert(self.K1, self.K1.shape[1], 1, axis=1)
         trained_weights = np.expand_dims(self.weights, -1)
-        prediction = np.sign(np.dot(self.K1, trained_weights))
 
-        if not boost:
+        if not self.boost:
+            prediction = np.sign(np.dot(self.K1, trained_weights))
             prediction = prediction == labels
             acc = np.sum(prediction) * 100 / self.K1.shape[0]
             print(f"Accuracy on {mode} data: {acc}")
             return
 
         else:
+            prediction = np.dot(self.K1, trained_weights)
             return prediction
 
 if __name__ == '__main__':
