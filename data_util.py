@@ -86,10 +86,10 @@ class Dataset:
 
     def normalize_image(self, image):
 
-        mean = np.mean(image)
-        std = np.std(image)
+        mean = np.mean(image, axis=0)
+        # std = np.std(image)
 
-        return (image.flatten() - mean) / std**2
+        return (image - mean)
 
     def transform_data(self, transform='PCA', **kwargs):
 
@@ -98,10 +98,11 @@ class Dataset:
             threshold = kwargs['threshold']
             data_name = kwargs['data_name']
             keys = data_name
-            normalize_data = [self.normalize_image(self.data_dict[keys][0][i][:,:,j])
+            normalize_data = [self.data_dict[keys][0][i][:,:,j].flatten()
                               for i in range(self.data_dict[keys][1])
                               for j in range(self.data_dict[keys][2])]
             normalize_data = np.array(normalize_data, dtype=np.float64)
+            normalize_data = self.normalize_image(normalize_data)
             cov_data = np.matmul(normalize_data.T, normalize_data)
             eig_value, eig_vector = np.linalg.eig(cov_data)
 
@@ -146,8 +147,8 @@ class Dataset:
 
         if seed:
             np.random.seed(10)
+            np.random.shuffle(self.processed_dataset)
 
-        # np.random.shuffle(self.processed_dataset)
         try:
             split_size = int(self.processed_dataset[data_name].shape[0] * test_ratio)
             if split_size == self.processed_dataset[data_name].shape[0]:
