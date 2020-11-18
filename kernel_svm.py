@@ -39,12 +39,15 @@ class svm:
         return kernel
 
     def calculate_gradient(self, x, y):
+        eps = 100
         x = np.expand_dims(x, 0)
         y = np.expand_dims(y, 0)
         distance = 1 - (y * np.dot(x, self.weights))
-        distance[distance < 0] = 0
+        # print(distance)
+        distance[distance < eps] = 0
         dw = np.zeros(self.weights.shape[0])
         inds = np.where(distance > 0)[0]
+        # print(len(inds))
         if len(inds) == 0:
             dw += self.weights
         else:
@@ -59,8 +62,8 @@ class svm:
             self.weights = np.zeros(X.shape[1])
         else:
             self.weights = np.random.rand(X.shape[1])
-
-        self.weights = np.zeros(X.shape[1])
+        self.weights = np.random.rand(X.shape[1])
+        # self.weights = np.zeros(X.shape[1])
 
         if not self.boost:
             for epoch in trange(self.max_epochs, desc='training svm'):
@@ -73,6 +76,7 @@ class svm:
                     self.weights = self.weights - self.lr * gradient
 
                     if np.linalg.norm(gradient) <= self.eps:
+                        print(f'Gradient is too small: {np.linalg.norm(gradient)}. Exiting training')
                         return
 
                 if ((epoch + 1) % 2000 == 0 or (epoch + 1) % 5000 == 0) and (self.val):

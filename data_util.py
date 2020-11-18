@@ -3,6 +3,7 @@ from scipy.io import loadmat
 import os
 import sys
 from tqdm import trange
+import matplotlib.pyplot as plt
 
 class Error(Exception):
     pass
@@ -51,6 +52,21 @@ class Dataset:
             for i in range(self.data_sub):
                 self.std_data[i] = \
                     self.data[:, :, 3 * i: 3 * (i + 1)]
+
+                # print(self.illum_data[0].shape)
+                # figure = plt.figure()
+                # plt.imshow(self.illum_data[0][:,:,0])
+                # plt.axis('off')
+                # plt.savefig('./Dataset/illum/1.png')
+                # figure = plt.figure()
+                # plt.imshow(self.illum_data[0][:,:,1])
+                # plt.axis('off')
+                # plt.savefig('./Dataset/illum/2.png')
+                # figure = plt.figure()
+                # plt.imshow(self.illum_data[0][:,:,2])
+                # plt.axis('off')
+                # plt.savefig('./Dataset/illum/3.png')
+                # exit(-1)
 
         elif self.task_id == 2:
             # Since the second tak is a binary problem where each class has 200 images
@@ -107,13 +123,14 @@ class Dataset:
             eig_value, eig_vector = np.linalg.eig(cov_data)
 
             # Sorting eigen value and corresponding eig vector in descending order
+            eig_value = eig_value.real
+            eig_value = eig_value / np.sum(eig_value)
             index = np.argsort(eig_value)
             index = index[::-1]
             eig_value_sort = eig_value[index]
             eig_vector_sort = eig_vector[:, index]
 
             # Taking only real values
-            eig_value_sort = eig_value_sort.real
             eig_vector_sort = eig_vector_sort.real
 
             principle_components = np.matmul(normalize_data, eig_vector_sort)
@@ -124,6 +141,27 @@ class Dataset:
                 col_threshold = int(principle_components.shape[-1] * threshold)
                 if col_threshold <= 0:
                     raise ZeroData
+
+                # x_axis = np.arange(0, eig_value.shape[0])
+                # fig = plt.figure()
+                # plt.plot(x_axis[:col_threshold], eig_value[:col_threshold])
+                # x_ticks = np.arange(0, len(x_axis[:col_threshold]),
+                #                     max(0, min(col_threshold, int( len(x_axis[:col_threshold]) / 10 ))))
+                # plt.xticks(x_ticks)
+                # plt.xlabel('Number of eigen values')
+                # plt.ylabel('Eigen Value / Sum of all Eigen Values')
+                # print(np.sum(eig_value[:col_threshold]))
+                # plt.savefig(f'./Dataset/{data_name}/principal_components_'
+                #             f'taskid={self.task_id}_selected_{col_threshold}.png')
+                #
+                # plt.close()
+                # fig = plt.figure()
+                # plt.plot(x_axis, eig_value)
+                # plt.xlabel('Number of eigen values')
+                # plt.ylabel('Eigen Value / Sum of all Eigen Values')
+                # print(np.sum(eig_value))
+                # plt.savefig(f'./Dataset/{data_name}/principal_components_all_taskik={self.task_id}.png')
+                # plt.close()
 
             except ZeroData:
                 print("Choose a higher threshold. Current value gives zero features")
@@ -146,7 +184,7 @@ class Dataset:
     def train_val_test_split(self, data_name='data', test_ratio=0.8, seed=True, cross_ratio=None):
 
         if seed:
-            np.random.seed(10)
+            np.random.seed(12)
             np.random.shuffle(self.processed_dataset)
 
         try:

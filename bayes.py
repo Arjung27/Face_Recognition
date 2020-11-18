@@ -2,10 +2,13 @@ import numpy as np
 import argparse
 from data_util import Dataset
 from tqdm import tqdm, trange
+from sklearn.covariance import LedoitWolf
+import matplotlib.pyplot as plt
 
 def calculate_class_stat(train_data):
     mean = {}
     cov = {}
+
     for i in range(train_data.shape[-1]):
         mean[i] = np.mean(train_data[:,:,i], axis=0)
         mean_ = np.expand_dims(mean[i], -1)
@@ -13,7 +16,14 @@ def calculate_class_stat(train_data):
         for j in range(train_data[:,:,i].shape[0]):
             x = np.expand_dims(train_data[j,:,i], -1)
             cov_ += np.dot(x - mean_, (x - mean_).T)
+
         cov[i] = (1/(j+1)) * cov_
+        X = np.random.multivariate_normal(mean=mean[i],
+                                          cov = cov[i],
+                                          size = 50)
+        covLW= LedoitWolf().fit(X)
+        cov[i] = covLW.covariance_
+
     return mean, cov
 
 def gaussian(x, mean, cov):
@@ -57,17 +67,42 @@ def bayes_classification(data):
     print(f"Training accuracy is: {train_acc}")
     print(f"Testing accuracy is: {test_acc}")
 
+    return train_acc, test_acc
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Bayes")
     parser.add_argument('--data_name', type=str, default='data',
                         help='choose from data, pose and illum')
+    parser.add_argument('--task_id', type=int, default=1)
     args = parser.parse_args()
     data_name = args.data_name
-    threshold = {'data': 0.004,
-                 'pose': 0.025,
-                 'illum': 0.1}
-    data = Dataset()
-    data.load_data(transform='PCA', threshold=threshold[data_name], data_name=data_name)
-    data.train_val_test_split(data_name=data_name)
-    bayes_classification(data)
+    test_acc_list = []
+    split = []
+    fig = plt.figure()
+    for j in np.arange(0.02, 0.15, 0.01):
+        if args.task_id == 1:
+            # threshold = {'data': 0.03,
+            #              'pose': 0.02,
+            #              'illum': 0.02}
+
+            threshold = {'data': j,
+                         'pose': j,
+                         'illum': j}
+
+        elif args.task_id == 2:
+            threshold = {'data': j}
+
+        data = Dataset(task_id=args.task_id)
+        data.load_data(transform='PCA', threshold=threshold[data_name], data_name=data_name)
+        data.train_val_test_split(data_name=data_name)
+        _, test_acc = bayes_classification(data)
+        test_acc_list.append(test_acc)
+        split.append(j)
+
+        # plt.plot(split, test_acc_list)
+        # plt.xlabel('Fraction of Principal Components Taken')
+        # plt.ylabel('Test Accuracy')
+        # plt.savefig(f'./Dataset/{data_name}/test_acc_taskid={args.task_id}.png')
+
+    plt.close()
