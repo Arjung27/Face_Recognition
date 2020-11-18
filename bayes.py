@@ -75,12 +75,18 @@ if __name__ == '__main__':
     parser.add_argument('--data_name', type=str, default='data',
                         help='choose from data, pose and illum')
     parser.add_argument('--task_id', type=int, default=1)
+    parser.add_argument('--transform', type=str, default='PCA', help='PCA or MDA')
     args = parser.parse_args()
     data_name = args.data_name
     test_acc_list = []
     split = []
     fig = plt.figure()
-    for j in np.arange(0.02, 0.15, 0.01):
+
+    if data_name =='data':
+        indexes = np.arange(0.02, 0.15, 0.01)
+    else:
+        indexes = np.arange(0.02, 0.1, 0.01)
+    for j in indexes:
         if args.task_id == 1:
             # threshold = {'data': 0.03,
             #              'pose': 0.02,
@@ -94,15 +100,15 @@ if __name__ == '__main__':
             threshold = {'data': j}
 
         data = Dataset(task_id=args.task_id)
-        data.load_data(transform='PCA', threshold=threshold[data_name], data_name=data_name)
+        data.load_data(transform=args.transform, threshold=threshold[data_name], data_name=data_name)
         data.train_val_test_split(data_name=data_name)
         _, test_acc = bayes_classification(data)
         test_acc_list.append(test_acc)
         split.append(j)
 
-        # plt.plot(split, test_acc_list)
-        # plt.xlabel('Fraction of Principal Components Taken')
-        # plt.ylabel('Test Accuracy')
-        # plt.savefig(f'./Dataset/{data_name}/test_acc_taskid={args.task_id}.png')
+    plt.plot(split, test_acc_list)
+    plt.xlabel('Fraction of Principal Components Taken')
+    plt.ylabel('Test Accuracy')
+    plt.savefig(f'./Dataset/{data_name}/bayes/test_acc_transform={args.transform}_taskid={args.task_id}.png')
 
     plt.close()

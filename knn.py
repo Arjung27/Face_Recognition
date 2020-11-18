@@ -16,7 +16,7 @@ def nearest_neighbour(train_data, test_data, k=1):
     test_data = test_data[None, :, None]
     norm_l2 = np.linalg.norm(train_data - test_data, axis=1)
     flattened = np.ravel(norm_l2.T)
-    index = np.argpartition(flattened, k)
+    index = np.argsort(flattened)
     index = index[:k]
     index = [int(i / train_data.shape[0]) for i in index]
     counts = np.bincount(index)
@@ -63,6 +63,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_name', type=str, default='data',
                         help='choose from data, pose and illum')
     parser.add_argument('--task_id', type=int, default=1)
+    parser.add_argument('--transform', type=str, default='PCA', help='PCA or MDA')
     args = parser.parse_args()
     data_name = args.data_name
     # threshold = {'data': 0.3,
@@ -78,7 +79,11 @@ if __name__ == '__main__':
 
     test_acc_list = {}
     split = []
-    for _, j in enumerate(np.arange(0.005, 0.3, 0.01)):
+    if data_name =='data':
+        indexes = np.arange(0.005, 0.3, 0.01)
+    else:
+        indexes = np.arange(0.005, 0.1, 0.01)
+    for _, j in enumerate(indexes):
         if args.task_id == 1:
 
             threshold = {'data': j,
@@ -89,7 +94,7 @@ if __name__ == '__main__':
             threshold = {'data': j}
 
         data = Dataset(task_id=args.task_id)
-        data.load_data(transform='PCA', threshold=threshold[data_name], data_name=data_name)
+        data.load_data(transform=args.transform, threshold=threshold[data_name], data_name=data_name)
         data.train_val_test_split(data_name=data_name)
 
         for i in range(min(data.train_data.shape[0], 10)):
@@ -102,7 +107,7 @@ if __name__ == '__main__':
             else:
                 test_acc_list[i + 1] = [test_acc]
 
-    split = list(np.arange(0.005, 0.3, 0.01))
+    split = list(indexes)
 
     fig = plt.figure()
     for keys in test_acc_list.keys():
@@ -111,5 +116,5 @@ if __name__ == '__main__':
         plt.xlabel('Fraction of Principal Components Taken')
         plt.ylabel('Test Accuracy')
 
-    plt.savefig(f'./Dataset/{data_name}/knn/test_acc_taskid={args.task_id}.png')
-        # plt.close()
+    plt.savefig(f'./Dataset/{data_name}/knn/test_acc_transform={args.transform}_taskid={args.task_id}.png')
+    plt.close()

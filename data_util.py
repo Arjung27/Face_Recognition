@@ -4,6 +4,7 @@ import os
 import sys
 from tqdm import trange
 import matplotlib.pyplot as plt
+from sklearn.covariance import LedoitWolf
 
 class Error(Exception):
     pass
@@ -110,76 +111,110 @@ class Dataset:
     def transform_data(self, transform='PCA', **kwargs):
 
         self.make_data_dict()
+        threshold = kwargs['threshold']
+        data_name = kwargs['data_name']
+        keys = data_name
         if transform.upper() == 'PCA':
-            threshold = kwargs['threshold']
-            data_name = kwargs['data_name']
-            keys = data_name
             normalize_data = [self.data_dict[keys][0][i][:,:,j].flatten()
                               for i in range(self.data_dict[keys][1])
                               for j in range(self.data_dict[keys][2])]
             normalize_data = np.array(normalize_data, dtype=np.float64)
             normalize_data = self.normalize_image(normalize_data)
             cov_data = np.matmul(normalize_data.T, normalize_data)
-            eig_value, eig_vector = np.linalg.eig(cov_data)
-
-            # Sorting eigen value and corresponding eig vector in descending order
-            eig_value = eig_value.real
-            eig_value = eig_value / np.sum(eig_value)
-            index = np.argsort(eig_value)
-            index = index[::-1]
-            eig_value_sort = eig_value[index]
-            eig_vector_sort = eig_vector[:, index]
-
-            # Taking only real values
-            eig_vector_sort = eig_vector_sort.real
-
-            principle_components = np.matmul(normalize_data, eig_vector_sort)
-            # variance = np.std(principle_components, axis=0)
-            # index = np.argsort(variance)
-
-            try:
-                col_threshold = int(principle_components.shape[-1] * threshold)
-                if col_threshold <= 0:
-                    raise ZeroData
-
-                # x_axis = np.arange(0, eig_value.shape[0])
-                # fig = plt.figure()
-                # plt.plot(x_axis[:col_threshold], eig_value[:col_threshold])
-                # x_ticks = np.arange(0, len(x_axis[:col_threshold]),
-                #                     max(0, min(col_threshold, int( len(x_axis[:col_threshold]) / 10 ))))
-                # plt.xticks(x_ticks)
-                # plt.xlabel('Number of eigen values')
-                # plt.ylabel('Eigen Value / Sum of all Eigen Values')
-                # print(np.sum(eig_value[:col_threshold]))
-                # plt.savefig(f'./Dataset/{data_name}/principal_components_'
-                #             f'taskid={self.task_id}_selected_{col_threshold}.png')
-                #
-                # plt.close()
-                # fig = plt.figure()
-                # plt.plot(x_axis, eig_value)
-                # plt.xlabel('Number of eigen values')
-                # plt.ylabel('Eigen Value / Sum of all Eigen Values')
-                # print(np.sum(eig_value))
-                # plt.savefig(f'./Dataset/{data_name}/principal_components_all_taskik={self.task_id}.png')
-                # plt.close()
-
-            except ZeroData:
-                print("Choose a higher threshold. Current value gives zero features")
-                sys.exit()
-
-            index = index[:col_threshold]
-            principle_components = principle_components[:, index]
-
-            img_sub = self.data_dict[keys][2]
-            for i in trange(0, self.data_dict[keys][1], desc='data_pre_processing'):
-                if keys in self.processed_dataset.keys():
-                    self.processed_dataset[keys] = np.dstack((self.processed_dataset[keys],
-                                                              principle_components[img_sub*i : img_sub*(i+1)]))
-                else:
-                    self.processed_dataset[keys] = principle_components[img_sub*i : img_sub*(i+1)]
 
         elif transform == 'MDA':
-            return
+            data = self.data_dict[keys]
+            num_classes = data[1]
+            # Since uniform distribution
+            prob_wi = np.full((num_classes, 1), 1 / num_classes)
+            mu_i = [np.mean(data[0][key], axis=2).flatten() for i, key in enumerate(data[0].keys())]
+            data_centered = [self.data_dict[keys][0][i][:, :, j].flatten()
+                              for i in range(self.data_dict[keys][1])
+                              for j in range(self.data_dict[keys][2])]
+            normalize_data = np.array(data_centered, dtype=np.float64)
+            mu0 = 0
+            sig_w = 0
+            sig_b = 0
+
+            for i in range(num_classes):
+                mu0 += np.expand_dims(prob_wi[i]*mu_i[i], 1)
+
+            for i in range(num_classes):
+                sig_b += prob_wi[i] * np.dot(np.expand_dims(mu_i[i], 1) - mu0, (np.expand_dims(mu_i[i], 1) - mu0).T)
+                sig_i = 0
+                for j in range(data[2]):
+                    curr_data = np.expand_dims(data_centered[data[2]*i + j], 1)
+                    sig_i += np.dot(curr_data, curr_data.T)
+                    # print(np.linalg.det(np.dot(curr_data, curr_data.T)))
+
+                sig_i = (1 / j) * sig_i
+                sig_w += prob_wi[i] * sig_i
+
+            np.random.seed(12)
+            X = np.random.multivariate_normal(mean=mu0.squeeze(),
+                                              cov=sig_w,
+                                              size=50)
+            covLW = LedoitWolf().fit(X)
+            sig_w = covLW.covariance_
+            cov_data = np.matmul(np.linalg.inv(sig_w), sig_b)
+
+        eig_value, eig_vector = np.linalg.eig(cov_data)
+
+        # Sorting eigen value and corresponding eig vector in descending order
+        eig_value = eig_value.real
+        eig_value = eig_value / np.sum(eig_value)
+        index = np.argsort(eig_value)
+        index = index[::-1]
+        eig_value_sort = eig_value[index]
+        eig_vector_sort = eig_vector[:, index]
+
+        # Taking only real values
+        eig_vector_sort = eig_vector_sort.real
+
+        principle_components = np.matmul(normalize_data, eig_vector_sort)
+        # variance = np.std(principle_components, axis=0)
+        # index = np.argsort(variance)
+
+        try:
+            col_threshold = int(principle_components.shape[-1] * threshold)
+            if col_threshold <= 0:
+                raise ZeroData
+
+            x_axis = np.arange(0, eig_value.shape[0])
+            fig = plt.figure()
+            plt.plot(x_axis[:col_threshold], eig_value[:col_threshold])
+            x_ticks = np.arange(0, len(x_axis[:col_threshold]),
+                                max(0, min(col_threshold, int( len(x_axis[:col_threshold]) / 10 ))))
+            plt.xticks(x_ticks)
+            plt.xlabel('Number of eigen values')
+            plt.ylabel('Eigen Value / Sum of all Eigen Values')
+            plt.savefig(f'./Dataset/{data_name}/bayes/principal_components_transform={transform}_'
+                        f'taskid={self.task_id}_selected_{col_threshold}.png')
+
+            plt.close()
+            fig = plt.figure()
+            plt.plot(x_axis, eig_value)
+            plt.xlabel('Number of eigen values')
+            plt.ylabel('Eigen Value / Sum of all Eigen Values')
+            plt.savefig(f'./Dataset/{data_name}/bayes/principal_components_transform={transform}'
+                        f'_all_taskid={self.task_id}.png')
+            plt.close()
+
+        except ZeroData:
+            print("Choose a higher threshold. Current value gives zero features")
+            sys.exit()
+
+        index = index[:col_threshold]
+        principle_components = principle_components[:, index]
+
+        img_sub = self.data_dict[keys][2]
+        for i in trange(0, self.data_dict[keys][1], desc='data_pre_processing'):
+            if keys in self.processed_dataset.keys():
+                self.processed_dataset[keys] = np.dstack((self.processed_dataset[keys],
+                                                          principle_components[img_sub * i: img_sub * (i + 1)]))
+            else:
+                self.processed_dataset[keys] = principle_components[img_sub * i: img_sub * (i + 1)]
+
 
     def train_val_test_split(self, data_name='data', test_ratio=0.8, seed=True, cross_ratio=None):
 
@@ -195,8 +230,13 @@ class Dataset:
             print(f"Data split test_ratio ({test_ratio}) is such that the test split has zero points")
             sys.exit()
 
-        self.train_data = self.processed_dataset[data_name][0: split_size, :, :]
-        self.test_data = self.processed_dataset[data_name][split_size:, :, :]
+        if self.task_id == 1 and data_name == 'data':
+            self.train_data = self.processed_dataset[data_name][[0,2], :, :]
+            self.test_data = self.processed_dataset[data_name][1:2, :, :]
+        else:
+            self.train_data = self.processed_dataset[data_name][0:split_size, :, :]
+            self.test_data = self.processed_dataset[data_name][split_size:, :, :]
+
 
         if cross_ratio is not None:
             try:
@@ -224,5 +264,5 @@ if __name__ == '__main__':
     First initialize the dataset object the call load_data.
     """
     data = Dataset()
-    data.load_data(transform='PCA', threshold=0.02, data_name='data')
-    data.train_test_split()
+    data.load_data(transform='MDA', threshold=0.02, data_name='data')
+    data.train_val_test_split()

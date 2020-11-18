@@ -39,12 +39,12 @@ class svm:
         return kernel
 
     def calculate_gradient(self, x, y):
-        eps = 100
+
         x = np.expand_dims(x, 0)
         y = np.expand_dims(y, 0)
         distance = 1 - (y * np.dot(x, self.weights))
         # print(distance)
-        distance[distance < eps] = 0
+        distance[distance < self.eps] = 0
         dw = np.zeros(self.weights.shape[0])
         inds = np.where(distance > 0)[0]
         # print(len(inds))
@@ -62,7 +62,7 @@ class svm:
             self.weights = np.zeros(X.shape[1])
         else:
             self.weights = np.random.rand(X.shape[1])
-        self.weights = np.random.rand(X.shape[1])
+
         # self.weights = np.zeros(X.shape[1])
 
         if not self.boost:
@@ -75,15 +75,15 @@ class svm:
                     gradient = self.calculate_gradient(data, y_shuffled[batch_idx])
                     self.weights = self.weights - self.lr * gradient
 
-                    if np.linalg.norm(gradient) <= self.eps:
+                    if np.linalg.norm(gradient) <= self.eps and epoch >= 10:
                         print(f'Gradient is too small: {np.linalg.norm(gradient)}. Exiting training')
                         return
 
-                if ((epoch + 1) % 2000 == 0 or (epoch + 1) % 5000 == 0) and (self.val):
+                if ((epoch + 1) % 1000 == 0 or (epoch + 1) % 5000 == 0) and (self.val):
                     self.predict('train')
                     self.predict('val')
                     self.predict('test')
-                    if (epoch + 1) % 5000 == 0:
+                    if (epoch + 1) % 7000 == 0:
                         self.lr = self.lr / 2
                         print(f'New lr ---> {self.lr}')
         else:
@@ -96,16 +96,16 @@ class svm:
                     gradient = self.calculate_gradient(data, y_shuffled[batch_idx])
                     self.weights = self.weights - self.lr * gradient
 
-                    if np.linalg.norm(gradient) <= self.eps:
+                    if np.linalg.norm(gradient) <= self.eps and epoch > 10:
                         return
 
                 if ((epoch + 1) % 2000 == 0 or (epoch + 1) % 5000 == 0) and (self.val):
                     self.predict('train')
                     self.predict('val')
                     self.predict('test')
-                    if (epoch + 1) % 5000 == 0:
-                        self.lr = self.lr / 2
-                        print(f'New lr ---> {self.lr}')
+                    # if (epoch + 1) % 5000 == 0:
+                    #     self.lr = self.lr / 2
+                    #     print(f'New lr ---> {self.lr}')
 
 
     def svm_classification(self, **kwargs):
@@ -163,24 +163,53 @@ class svm:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Bayes")
     parser.add_argument('--kernel', type=str, default='rbf', help='rbf or poly')
+    parser.add_argument('--transform', type=str, default='PCA', help='PCA or MDA')
     args = parser.parse_args()
 
     data_name = 'data'
-    threshold = {'data': 0.02}
-    data = Dataset(task_id=2)
-    data.load_data(transform='PCA', threshold=threshold[data_name], data_name='data')
-    data.train_val_test_split(data_name=data_name, test_ratio=0.8, cross_ratio=0.8)
 
     if args.kernel == 'rbf':
-        param = data.train_data.shape[1]
-        # param = 1
+        threshold = {'PCA': {'data': 0.02},
+                     'MDA': {'data': 0.02}}
     else:
-        param = 5
+        threshold = {'PCA': {'data': 0.02},
+                     'MDA': {'data': 0.06}}
+
+    data = Dataset(task_id=2)
+    data.load_data(transform=args.transform, threshold=threshold[args.transform][data_name], data_name='data')
+    data.train_val_test_split(data_name=data_name, test_ratio=0.8, cross_ratio=0.8)
+
+    if args.kernel.lower() == 'rbf':
+        # lr = 0.0001
+        # param = 1
+        lr = {'PCA': 0.0001,
+              'MDA': 0.0005}
+        lr = lr[args.transform]
+        print(lr)
+        param = {'PCA': data.train_data.shape[1],
+                 'MDA': data.train_data.shape[1]}
+        epoch = {'PCA': 6000,
+                 'MDA': 3000}
+        margin = {'PCA': 10000,
+                  'MDA': 10000}
+    else:
+        param = {'PCA': 4,
+                 'MDA': 4}
+        epoch = {'PCA': 4000,
+                 'MDA': 7000}
+        margin = {'PCA': 10000,
+                  'MDA': 10}
+        lr = 0.0001
 
     ## RBF
-    classifier = svm(data, args.kernel, max_epochs=10000, lr=0.00008, margin=10000, kernel_param=param)
+    # classifier = svm(data, args.kernel, max_epochs=6000, lr=lr, margin=10000,
+    #                  kernel_param=param, eps=0)
 
     ## Poly
-    # classifier = svm(data, args.kernel, max_epochs=10000, lr=0.00005, margin=10000, kernel_param=param)
+    print(param)
+
+    ## MDA
+    classifier = svm(data, args.kernel, max_epochs=epoch[args.transform.upper()], lr=lr,
+                     margin=margin[args.transform.upper()], kernel_param=param[args.transform.upper()])
     classifier.svm_classification()
     classifier.predict()
