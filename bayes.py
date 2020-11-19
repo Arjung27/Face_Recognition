@@ -106,9 +106,9 @@ if __name__ == '__main__':
         test_acc_list.append(test_acc)
         split.append(j)
 
-    plt.plot(split, test_acc_list)
-    plt.xlabel('Fraction of Principal Components Taken')
-    plt.ylabel('Test Accuracy')
-    plt.savefig(f'./Dataset/{data_name}/bayes/test_acc_transform={args.transform}_taskid={args.task_id}.png')
+    # plt.plot(split, test_acc_list)
+    # plt.xlabel('Fraction of Principal Components Taken')
+    # plt.ylabel('Test Accuracy')
+    # plt.savefig(f'./Dataset/{data_name}/bayes/test_acc_transform={args.transform}_taskid={args.task_id}.png')
 
-    plt.close()
+    # plt.close()

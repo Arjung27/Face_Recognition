@@ -54,21 +54,6 @@ class Dataset:
                 self.std_data[i] = \
                     self.data[:, :, 3 * i: 3 * (i + 1)]
 
-                # print(self.illum_data[0].shape)
-                # figure = plt.figure()
-                # plt.imshow(self.illum_data[0][:,:,0])
-                # plt.axis('off')
-                # plt.savefig('./Dataset/illum/1.png')
-                # figure = plt.figure()
-                # plt.imshow(self.illum_data[0][:,:,1])
-                # plt.axis('off')
-                # plt.savefig('./Dataset/illum/2.png')
-                # figure = plt.figure()
-                # plt.imshow(self.illum_data[0][:,:,2])
-                # plt.axis('off')
-                # plt.savefig('./Dataset/illum/3.png')
-                # exit(-1)
-
         elif self.task_id == 2:
             # Since the second tak is a binary problem where each class has 200 images
             self.data_img_sub = 200

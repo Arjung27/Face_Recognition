@@ -24,6 +24,7 @@ class svm:
         self.seed = seed
         self.alpha = alpha
         self.boost = boost
+        self.alpha = 0
 
     def rbf_kernel(self, sigma=0.5):
         sigma = 1 / (sigma ** 2)
@@ -79,11 +80,11 @@ class svm:
                         print(f'Gradient is too small: {np.linalg.norm(gradient)}. Exiting training')
                         return
 
-                if ((epoch + 1) % 1000 == 0 or (epoch + 1) % 5000 == 0) and (self.val):
+                if ((epoch + 1) % 1000 == 0 or (epoch + 1) % 7000 == 0) and (self.val):
                     self.predict('train')
                     self.predict('val')
                     self.predict('test')
-                    if (epoch + 1) % 7000 == 0:
+                    if (epoch + 1) % 5000 == 0:
                         self.lr = self.lr / 2
                         print(f'New lr ---> {self.lr}')
         else:
@@ -92,10 +93,10 @@ class svm:
                 X_shuffled = X[shuffler]
                 y_shuffled = y[shuffler]
                 weights = self.weights
+
                 for batch_idx, data in enumerate(X_shuffled):
                     gradient = self.calculate_gradient(data, y_shuffled[batch_idx])
                     self.weights = self.weights - self.lr * gradient
-
                     if np.linalg.norm(gradient) <= self.eps and epoch > 10:
                         return
 
@@ -162,6 +163,8 @@ class svm:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Bayes")
+    parser.add_argument('--data_name', type=str, default='data',
+                        help='data')
     parser.add_argument('--kernel', type=str, default='rbf', help='rbf or poly')
     parser.add_argument('--transform', type=str, default='PCA', help='PCA or MDA')
     args = parser.parse_args()
@@ -173,7 +176,7 @@ if __name__ == '__main__':
                      'MDA': {'data': 0.02}}
     else:
         threshold = {'PCA': {'data': 0.02},
-                     'MDA': {'data': 0.06}}
+                     'MDA': {'data': 0.08}}
 
     data = Dataset(task_id=2)
     data.load_data(transform=args.transform, threshold=threshold[args.transform][data_name], data_name='data')
@@ -183,32 +186,26 @@ if __name__ == '__main__':
         # lr = 0.0001
         # param = 1
         lr = {'PCA': 0.0001,
-              'MDA': 0.0005}
+              'MDA': 0.00358}
         lr = lr[args.transform]
-        print(lr)
         param = {'PCA': data.train_data.shape[1],
                  'MDA': data.train_data.shape[1]}
         epoch = {'PCA': 6000,
-                 'MDA': 3000}
+                 'MDA': 10000}
         margin = {'PCA': 10000,
                   'MDA': 10000}
     else:
         param = {'PCA': 4,
-                 'MDA': 4}
-        epoch = {'PCA': 4000,
-                 'MDA': 7000}
+                 'MDA': 2}
+        epoch = {'PCA': 3000,
+                 'MDA': 5000}
         margin = {'PCA': 10000,
-                  'MDA': 10}
-        lr = 0.0001
+                  'MDA': 10000}
+        # lr = 0.0001
+        lr = {'PCA': 0.0001,
+              'MDA': 1.58e-07}
+        lr = lr[args.transform]
 
-    ## RBF
-    # classifier = svm(data, args.kernel, max_epochs=6000, lr=lr, margin=10000,
-    #                  kernel_param=param, eps=0)
-
-    ## Poly
-    print(param)
-
-    ## MDA
     classifier = svm(data, args.kernel, max_epochs=epoch[args.transform.upper()], lr=lr,
                      margin=margin[args.transform.upper()], kernel_param=param[args.transform.upper()])
     classifier.svm_classification()

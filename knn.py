@@ -80,9 +80,9 @@ if __name__ == '__main__':
     test_acc_list = {}
     split = []
     if data_name =='data':
-        indexes = np.arange(0.005, 0.3, 0.01)
+        indexes = np.arange(0.02, 0.3, 0.01)
     else:
-        indexes = np.arange(0.005, 0.1, 0.01)
+        indexes = np.arange(0.02, 0.1, 0.01)
     for _, j in enumerate(indexes):
         if args.task_id == 1:
 
@@ -107,14 +107,14 @@ if __name__ == '__main__':
             else:
                 test_acc_list[i + 1] = [test_acc]
 
-    split = list(indexes)
-
-    fig = plt.figure()
-    for keys in test_acc_list.keys():
-        plt.plot(split, test_acc_list[keys], label=f'k={keys}')
-        plt.legend(bbox_to_anchor=(0.82, 1), loc='upper left', borderaxespad=0.)
-        plt.xlabel('Fraction of Principal Components Taken')
-        plt.ylabel('Test Accuracy')
-
-    plt.savefig(f'./Dataset/{data_name}/knn/test_acc_transform={args.transform}_taskid={args.task_id}.png')
-    plt.close()
+    # split = list(indexes)
+    #
+    # fig = plt.figure()
+    # for keys in test_acc_list.keys():
+    #     plt.plot(split, test_acc_list[keys], label=f'k={keys}')
+    #     plt.legend(bbox_to_anchor=(0.82, 1), loc='upper left', borderaxespad=0.)
+    #     plt.xlabel('Fraction of Principal Components Taken')
+    #     plt.ylabel('Test Accuracy')
+    #
+    # plt.savefig(f'./Dataset/{data_name}/knn/test_acc_transform={args.transform}_taskid={args.task_id}.png')
+    # plt.close()
