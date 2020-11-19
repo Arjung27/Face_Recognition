@@ -97,7 +97,7 @@ if __name__ == '__main__':
     if args.lr is None:
         lr = {'PCA': 2.56e-5,
               'MDA': 4.09e-04}
-        args.lr = lr[args.transforms]
+        args.lr = lr[args.transform]
 
     data_name = 'data'
     threshold = {'data': 0.02}
