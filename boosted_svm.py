@@ -41,7 +41,7 @@ class Adaboost():
                                  margin=10000, seed=False, val=False, boost=True,
                                  kernel_param=2)
                 obj.svm_classification()
-                error = np.sum(w[(labels != obj.prediction).squeeze()])
+                error = np.sum(w[(labels != np.sign(obj.prediction)).squeeze()])
                 if error > self.error_threshold:
                     continue
 
@@ -49,7 +49,7 @@ class Adaboost():
                 predictions = np.ones(np.shape(labels))
                 wrong_pred = labels != obj.prediction
                 predictions[wrong_pred] = -1
-                w *= np.exp(-obj.alpha * labels.squeeze() * obj.prediction.squeeze())
+                w *= np.exp(-obj.alpha * labels.squeeze() * np.sign(obj.prediction).squeeze())
                 w /= np.sum(w)
                 self.classifiers.append(obj)
                 self.predict_boost('test')
@@ -84,7 +84,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_name', type=str, default='data',
                         help='data')
     parser.add_argument('--iterations', type=int, default=15, help='Number of classifiers')
-    parser.add_argument('--kernel', type=str, default='rbf', help='rbf or poly')
+    parser.add_argument('--kernel', type=str, default='linear', help='rbf or poly')
     parser.add_argument('--max_epochs', type=int, default=10000, help='Number of classifiers')
     parser.add_argument('--lr', type=float, default=None, help='Learning rate for SVM')
     parser.add_argument('--thresh', type=float, default=0.5, help='Upper bound for error')
