@@ -43,10 +43,10 @@ class Dataset:
                 for j in range(self.illum_img_sub):
                     if i not in self.illum_data.keys():
                         self.illum_data[i] = \
-                            np.reshape(self.illumination[:,  j, i], (48, 40))
+                            np.reshape(self.illumination[:,  j, i], (40, 48))
                     else:
                         self.illum_data[i] = np.dstack((self.illum_data[i],
-                                                       np.reshape(self.illumination[:,  j, i], (48, 40))))
+                                                       np.reshape(self.illumination[:,  j, i], (40, 48))))
 
             self.std_data = {}
 
